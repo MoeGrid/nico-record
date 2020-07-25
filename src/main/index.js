@@ -1,6 +1,7 @@
 import {app, BrowserView, BrowserWindow, ipcMain} from 'electron'
 import path from 'path'
-import fs from "fs";
+import fs from 'fs';
+import config from './config';
 
 /**
  * Set `__static` path to static files in production
@@ -20,9 +21,10 @@ const winURL = process.env.NODE_ENV === 'development'
     : `file://${__dirname}/index.html`;
 
 // 创建工作目录
-const dir = path.join(process.cwd(), 'record');
-if (!fs.existsSync(dir))
-    fs.mkdirSync(dir, {recursive: true});
+if (!config.RECORD_DIR || !fs.existsSync(config.RECORD_DIR))
+    config.RECORD_DIR = path.join(process.cwd(), 'record');
+if (!fs.existsSync(config.RECORD_DIR))
+    fs.mkdirSync(config.RECORD_DIR, {recursive: true});
 
 /**
  * 创建主窗口
@@ -50,8 +52,7 @@ function createWindow() {
             preload: path.join(__static, 'preload.js')
         }
     });
-    mainView.setBounds({x: 0, y: 0, width: 0, height: 0});
-    mainView.webContents.loadURL('https://nicovideo.jp/');
+    mainView.setBounds({x: 0, y: 0, width: 100, height: 100});
     if (process.env.NODE_ENV === 'development')
         mainView.webContents.openDevTools();
     mainView.webContents.on('new-window', (e, url) => {
@@ -77,16 +78,13 @@ app.on('activate', () => {
     }
 });
 
-// 调整webview大小和位置
-ipcMain.on('view-resize', (event, arg) => {
-    if (mainView)
-        mainView.setBounds(arg);
-});
-
 // 操作webview
 ipcMain.on('view-action', (event, arg) => {
     if (!mainView) return;
     switch (arg.action) {
+        case 'resize':
+            mainView.setBounds(arg);
+            break;
         case 'go':
             mainView.webContents.loadURL(arg.url);
             break;
@@ -101,6 +99,11 @@ ipcMain.on('view-action', (event, arg) => {
             break;
         case 'refresh':
             mainView.webContents.reload();
+            break;
+        case 'proxy':
+            mainView.webContents.session.setProxy({
+                proxyRules: arg.proxy
+            });
             break;
     }
 });

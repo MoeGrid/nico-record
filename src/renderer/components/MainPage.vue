@@ -1,70 +1,91 @@
 <template>
-    <el-container style="height: 100%;">
-        <el-header>
+    <div class="main-page">
+        <div class="header">
             <el-button type="primary" icon="el-icon-back" circle @click="back"></el-button>
             <el-button type="primary" icon="el-icon-right" circle @click="forward"></el-button>
             <el-button type="primary" icon="el-icon-refresh-right" circle @click="refresh"></el-button>
             <el-button type="primary" icon="el-icon-house" circle @click="home"></el-button>
-            <el-input placeholder="请输入视频或直播地址" v-model="url" @keyup.enter.native="go"
-                      style="margin-left: 10px"></el-input>
-        </el-header>
-        <el-container>
-            <el-aside width="300px">
-                <div class="control-bar">
-                    <p>工作状态</p>
-                    <p>
+            <el-input placeholder="请输入视频或直播地址" v-model="url" @keyup.enter.native="go" style="margin-left: 10px"/>
+        </div>
+        <div class="body">
+            <div class="left-bar">
+                <el-collapse v-model="activeNames">
+                    <el-collapse-item title="工作状态" name="1">
                         <el-badge :value="plugin.status ? '工作中' : '未工作'" :type="plugin.status ? 'success' : 'danger'"/>
-                    </p>
-                    <p>标题</p>
-                    <p>{{plugin.title}}</p>
-                    <el-button type="primary" @click="openDir">打开录像目录</el-button>
-                </div>
-            </el-aside>
-            <el-container>
-                <web-view ref="view"></web-view>
-                <!--<el-footer height="30px">Footer</el-footer>-->
-            </el-container>
-        </el-container>
-    </el-container>
+                    </el-collapse-item>
+                    <el-collapse-item title="视频标题" name="2">
+                        <div>{{plugin.title}}</div>
+                    </el-collapse-item>
+                    <el-collapse-item title="保存目录" name="3">
+                        <el-input size="mini" placeholder="请输入代理地址" v-model="recordDir" readonly/>
+                        <el-button type="text" @click="selectDir">选择目录</el-button>
+                        <el-button type="text" @click="openDir">打开目录</el-button>
+                    </el-collapse-item>
+                    <el-collapse-item title="代理" name="4">
+                        <el-input size="mini" placeholder="请输入代理地址" v-model="proxy"/>
+                        <el-button type="text" @click="setProxy">设置代理</el-button><br>
+                        <p style="color: dimgray; font-size: 12px;">
+                            格式为 scheme://host:port<br>
+                            scheme支持http、https、socks5<br>
+                            为空不设置代理
+                        </p>
+                    </el-collapse-item>
+                </el-collapse>
+            </div>
+            <div class="webview" ref="view"></div>
+        </div>
+    </div>
 </template>
 
 <script>
-    import WebView from "@/components/WebView";
-    import {ipcRenderer} from "electron";
-    import fs from "fs";
-    import url from "url";
-    import path from "path";
+    import {ipcRenderer, remote} from 'electron';
+    import fs from 'fs';
+    import url from 'url';
+    import path from 'path';
+    import config from '../utils/config';
 
-    const {shell} = require("electron").remote;
+    const mainView = remote.getGlobal('mainView');
 
     export default {
         name: 'landing-page',
-        components: {WebView},
         data() {
             return {
-                saveDir: '',
+                recordDir: '',
                 url: '',
+                proxy: '',
                 plugin: {
                     status: false,
-                    title: '',
-                }
+                    title: '未获取',
+                },
+                activeNames: [
+                    '1', '2', '3', '4'
+                ]
             };
         },
         methods: {
+            resize() {
+                const view = this.$refs.view;
+                mainView.setBounds({
+                    x: view.offsetLeft,
+                    y: view.offsetTop,
+                    width: view.offsetWidth,
+                    height: view.offsetHeight,
+                });
+            },
             go() {
-                this.$refs.view.go(this.url);
+                mainView.webContents.loadURL(this.url);
             },
             home() {
-                this.$refs.view.home();
+                mainView.webContents.loadURL('https://nicovideo.jp/');
             },
             back() {
-                this.$refs.view.back();
+                mainView.webContents.goBack();
             },
             forward() {
-                this.$refs.view.forward();
+                mainView.webContents.goForward();
             },
             refresh() {
-                this.$refs.view.refresh();
+                mainView.webContents.reload();
             },
             pluginStatus(event, arg) {
                 this.plugin.status = arg;
@@ -76,18 +97,39 @@
             pluginTs(event, arg) {
                 if (!this.plugin.title) return;
                 const uri = url.parse(arg.url);
-                const file = path.join(this.saveDir, this.plugin.title, path.basename(uri.pathname));
+                const file = path.join(this.recordDir, this.plugin.title, path.basename(uri.pathname));
                 const dir = path.dirname(file)
                 if (!fs.existsSync(dir))
                     fs.mkdirSync(dir, {recursive: true});
-                fs.writeFileSync(file, Buffer.from(arg.data))
+                fs.writeFileSync(file, Buffer.from(arg.data));
+            },
+            selectDir() {
+                const res = remote.dialog.showOpenDialogSync({properties: ['openDirectory']});
+                if (res.length > 0) {
+                    this.recordDir = res[0];
+                    config.RECORD_DIR = res[0];
+                }
             },
             openDir() {
-                shell.openPath(this.saveDir);
+                remote.shell.openPath(this.recordDir);
+            },
+            setProxy() {
+                this.proxy = this.proxy.trim();
+                config.PROXY = this.proxy;
+                mainView.webContents.session.setProxy({proxyRules: this.proxy});
+                this.refresh();
             }
         },
         mounted() {
-            this.saveDir = path.join(process.cwd(), 'record');
+            this.recordDir = config.RECORD_DIR;
+            this.proxy = config.PROXY;
+            this.setProxy();
+
+            window.onresize = this.resize;
+            this.resize();
+
+            this.home();
+
             ipcRenderer.on('plugin_status', this.pluginStatus);
             ipcRenderer.on('plugin_title', this.pluginTitle);
             ipcRenderer.on('plugin_ts', this.pluginTs);
@@ -96,31 +138,44 @@
 </script>
 
 <style>
-    .el-header {
-        padding-top: 20px;
+    .main-page {
+        height: 100%;
+    }
+
+    .main-page .header {
+        height: 60px;
+        padding: 0 10px;
         display: flex;
         align-items: center;
         background-color: #D3DCE6;
     }
 
-    /*.el-footer {*/
-    /*    background-color: #B3C0D1;*/
-    /*    color: #333;*/
-    /*}*/
-
-    .el-aside {
-        background-color: #B3C0D1;
+    .main-page .body {
+        height: calc(100% - 60px);
     }
 
-    .el-main {
-        background-color: #E9EEF3;
-    }
-
-    .control-bar {
+    .left-bar {
+        width: 300px;
+        height: 100%;
         padding: 10px;
+        background-color: #B3C0D1;
+        overflow: auto;
+        float: left;
     }
 
-    .control-bar > p {
-        margin-bottom: 5px;
+    .left-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .left-bar .el-collapse {
+        background-color: white;
+        padding: 0 10px;
+    }
+
+    .webview {
+        background-color: #D3DCE6;
+        float: right;
+        width: calc(100% - 300px);
+        height: 100%;
     }
 </style>

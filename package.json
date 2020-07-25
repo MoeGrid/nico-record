@@ -57,6 +57,7 @@
         }
     },
     "dependencies": {
+        "electron-store": "^6.0.0",
         "element-ui": "^2.13.2",
         "vue": "^2.5.16",
         "vue-electron": "^1.0.6",
