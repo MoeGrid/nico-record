@@ -23,7 +23,8 @@
                     </el-collapse-item>
                     <el-collapse-item title="代理" name="4">
                         <el-input size="mini" placeholder="请输入代理地址" v-model="proxy"/>
-                        <el-button type="text" @click="setProxy">设置代理</el-button><br>
+                        <el-button type="text" @click="setProxy">设置代理</el-button>
+                        <br>
                         <p style="color: dimgray; font-size: 12px;">
                             格式为 scheme://host:port<br>
                             scheme支持http、https、socks5<br>
@@ -114,7 +115,7 @@
                 remote.shell.openPath(this.recordDir);
             },
             setProxy() {
-                this.proxy = this.proxy.trim();
+                this.proxy = this.proxy ? this.proxy.trim() : '';
                 config.PROXY = this.proxy;
                 mainView.webContents.session.setProxy({proxyRules: this.proxy});
                 this.refresh();
