@@ -34,6 +34,17 @@
                             为空不设置代理
                         </p>
                     </el-collapse-item>
+                    <el-collapse-item title="自动录制" name="5">
+                        <el-input
+                                type="textarea"
+                                :autosize="{ minRows: 2, maxRows: 4}"
+                                placeholder="请输入自动播放的链接, 一行一条"
+                                v-model="auto.text">
+                        </el-input>
+                        <el-button type="text" @click="automatic">{{auto.enable ? '停止任务' : '开始任务'}}</el-button>
+                        <br>
+                        <p class="tip">当前进度: {{auto.index + 1}}/{{auto.num}}</p>
+                    </el-collapse-item>
                 </el-collapse>
             </div>
             <div class="webview" ref="view"></div>
@@ -60,8 +71,15 @@
                 enable: false,
                 status: false,
                 title: '未获取',
+                auto: {
+                    enable: false,
+                    text: '',
+                    list: [],
+                    num: 0,
+                    index: 0
+                },
                 activeNames: [
-                    '1', '2', '3', '4'
+                    '1', '2', '3', '4', '5'
                 ]
             };
         },
@@ -106,6 +124,36 @@
                     fs.mkdirSync(dir, {recursive: true});
                 fs.writeFileSync(file, Buffer.from(arg.data));
             },
+            pluginEnd(event, arg) {
+                if (!this.auto.enable)
+                    return;
+                this.auto.index++;
+                this.url = this.auto.list[this.auto.index];
+                this.go();
+            },
+            automatic() {
+                if (this.auto.enable) {
+                    // 停止
+                    this.auto.list = [];
+                    this.auto.num = -1;
+                    this.auto.num = 0;
+                    this.auto.enable = false;
+                } else {
+                    // 开始
+                    const tmp = this.auto.text.split('\n');
+                    this.auto.list = [];
+                    tmp.forEach((i) => {
+                        i = i.trim();
+                        if (i) this.auto.list.push(i);
+                    });
+                    this.auto.index = -1;
+                    this.auto.num = this.auto.list.length;
+                    this.auto.enable = true;
+                    this.pluginEnd();
+                }
+
+
+            },
             selectDir() {
                 const res = remote.dialog.showOpenDialogSync({properties: ['openDirectory']});
                 if (res.length > 0) {
@@ -121,7 +169,7 @@
                 config.PROXY = this.proxy;
                 mainView.webContents.session.setProxy({proxyRules: this.proxy});
                 this.refresh();
-            }
+            },
         },
         mounted() {
             this.recordDir = config.RECORD_DIR;
@@ -136,6 +184,7 @@
             ipcRenderer.on('plugin_status', this.pluginStatus);
             ipcRenderer.on('plugin_title', this.pluginTitle);
             ipcRenderer.on('plugin_ts', this.pluginTs);
+            ipcRenderer.on('plugin_end', this.pluginEnd);
         }
     }
 </script>

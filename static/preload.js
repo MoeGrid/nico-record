@@ -1,4 +1,4 @@
-const {remote} = require('electron')
+const {remote} = require('electron');
 require('./ajaxhook.min');
 
 const mainWindow = remote.getGlobal('mainWindow');
@@ -19,6 +19,13 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!title) return;
     title = title.replace(/[\/:*?"<>|]/g, '');
     mainWindow.send('plugin_title', title);
+    // 定时判断视频结束
+    const timer = setInterval(() => {
+        if (document.getElementsByClassName('VideoEndScreenContainer').length) {
+            clearInterval(timer);
+            mainWindow.send('plugin_end');
+        }
+    }, 1000);
 });
 
 ah.proxy({
