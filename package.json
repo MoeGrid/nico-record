@@ -7,6 +7,11 @@
     "main": "./dist/electron/main.js",
     "scripts": {
         "build": "node .electron-vue/build.js && electron-builder",
+        "build:linux64": "node .electron-vue/build.js && electron-builder --linux --x64",
+        "build:linux32": "node .electron-vue/build.js && electron-builder --linux --ia32",
+        "build:win64": "node .electron-vue/build.js && electron-builder --win --x64",
+        "build:win32": "node .electron-vue/build.js && electron-builder --win --ia32",
+        "build:mac": "node .electron-vue/build.js && electron-builder -l --mac",
         "build:dir": "node .electron-vue/build.js && electron-builder --dir",
         "build:clean": "cross-env BUILD_TARGET=clean node .electron-vue/build.js",
         "build:web": "cross-env BUILD_TARGET=web node .electron-vue/build.js",

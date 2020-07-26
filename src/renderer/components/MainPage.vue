@@ -11,10 +11,13 @@
             <div class="left-bar">
                 <el-collapse v-model="activeNames">
                     <el-collapse-item title="工作状态" name="1">
-                        <el-badge :value="plugin.status ? '工作中' : '未工作'" :type="plugin.status ? 'success' : 'danger'"/>
+                        <el-badge :value="status ? '工作中' : '未工作'" :type="status ? 'success' : 'danger'"/>
+                        <br>
+                        <el-switch v-model="enable" active-text="开启" inactive-text="关闭"/>
+                        <p class="tip">切换后需刷新</p>
                     </el-collapse-item>
                     <el-collapse-item title="视频标题" name="2">
-                        <div>{{plugin.title}}</div>
+                        <div>{{title}}</div>
                     </el-collapse-item>
                     <el-collapse-item title="保存目录" name="3">
                         <el-input size="mini" placeholder="请输入代理地址" v-model="recordDir" readonly/>
@@ -25,7 +28,7 @@
                         <el-input size="mini" placeholder="请输入代理地址" v-model="proxy"/>
                         <el-button type="text" @click="setProxy">设置代理</el-button>
                         <br>
-                        <p style="color: dimgray; font-size: 12px;">
+                        <p class="tip">
                             格式为 scheme://host:port<br>
                             scheme支持http、https、socks5<br>
                             为空不设置代理
@@ -54,10 +57,9 @@
                 recordDir: '',
                 url: '',
                 proxy: '',
-                plugin: {
-                    status: false,
-                    title: '未获取',
-                },
+                enable: false,
+                status: false,
+                title: '未获取',
                 activeNames: [
                     '1', '2', '3', '4'
                 ]
@@ -89,17 +91,17 @@
                 mainView.webContents.reload();
             },
             pluginStatus(event, arg) {
-                this.plugin.status = arg;
-                this.plugin.title = '未获取';
+                this.status = arg && this.enable;
+                this.title = '未获取';
             },
             pluginTitle(event, arg) {
-                this.plugin.title = arg;
+                this.title = arg;
             },
             pluginTs(event, arg) {
-                if (!this.plugin.title) return;
+                if (!this.status) return;
                 const uri = url.parse(arg.url);
-                const file = path.join(this.recordDir, this.plugin.title, path.basename(uri.pathname));
-                const dir = path.dirname(file)
+                const file = path.join(this.recordDir, this.title, path.basename(uri.pathname));
+                const dir = path.dirname(file);
                 if (!fs.existsSync(dir))
                     fs.mkdirSync(dir, {recursive: true});
                 fs.writeFileSync(file, Buffer.from(arg.data));
@@ -178,5 +180,10 @@
         float: right;
         width: calc(100% - 300px);
         height: 100%;
+    }
+
+    .tip {
+        color: dimgray;
+        font-size: 12px;
     }
 </style>
